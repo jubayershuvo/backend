@@ -1,11 +1,13 @@
 import mongoose from 'mongoose';
+import { DB_NAME, DB_URL } from '../constans.js';
 
-const db_url = 'mongodb+srv://jubayer_shuvo:Jubayer2@cluster0.7q7wicy.mongodb.net/authApp';
+const db_url = `${DB_URL}/${DB_NAME}`;
 
 async function db_connect(options ={}){
     try {
-        await mongoose.connect(db_url, options);
+        const connectionInstance = await mongoose.connect(db_url, options);
         console.log('==== DB Connected ===');
+        console.log(`DB_HOST: ${connectionInstance.connection.host}`);
 
         mongoose.connection.on('error', (error)=> {
             console.log('==== DB Connection Lost ====');
