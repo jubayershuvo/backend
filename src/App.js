@@ -18,16 +18,11 @@ app.use(cookieParser());
 
 
 
-app.get('/',(req, res)=>{
-    return res.status(200).json({success:true, message:"Server running"});
-});
-app.get('/:username',(req, res)=>{
-    const {username} = req.params;
-    return res.status(200).json({success:true, message:`Hi ${username}`});
-});
-app.get('*',(req, res)=>{
-    return res.status(404).json({success:false, message:"Page dosen't exist"});
-});
+
+
+import userRouter from './routers/usrRoutes.js';
+
+app.use('/api/v1/users', userRouter);
 
 
 export default app;
