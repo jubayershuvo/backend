@@ -1,7 +1,7 @@
 import mongoose, { Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { access_token_expiry, access_token_secret_key, jwt_access_token_expiry, refresh_token_access_key, refresh_token_expiry } from '../constans.js';
+import { access_token_expiry, access_token_secret_key, refresh_token_expiry, refresh_token_secret_key } from '../constans.js';
 
 const userSchema = new Schema({
     username:{
@@ -40,8 +40,11 @@ const userSchema = new Schema({
         },
     ],
     password:{
-            type:String,
-            require:true
+        type:String,
+        required:[true, 'Password is Required'],
+        trim:true,
+        minlength: [6,'Name will be 6 characters minimum'],
+        set:(v)=> bcrypt.hashSync(v, bcrypt.genSaltSync(10)),
     },
     refreshToken:{
         type:String
@@ -49,11 +52,14 @@ const userSchema = new Schema({
 
 },{timestamps:true});
 
-userSchema.pre("save", async function (next){
-    if(!this.isModified("password")) return next();
-    this.password = bcrypt.hash(this.password, 10)
-    next()
-})
+// userSchema.pre("save", async function (next){
+//     if(!this.isModified("password")){
+//         return next();
+//     }
+        
+//     this.password = bcrypt.hash(this.password, 10)
+//     next()
+// })
 userSchema.methods.isPasswordCorrect = async function (password) {
     return await bcrypt.compare(password,this.password)
 }
@@ -68,6 +74,6 @@ userSchema.methods.generateAccessToken = function(){
 userSchema.methods.generateRefreshToken = function(){
     return jwt.sign({
         _id: this._id,
-    },refresh_token_access_key, {expiresIn: refresh_token_expiry});
+    },refresh_token_secret_key, {expiresIn: refresh_token_expiry});
 }
 export const User = mongoose.model("User", userSchema);
