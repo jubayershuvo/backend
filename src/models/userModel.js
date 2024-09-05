@@ -44,7 +44,6 @@ const userSchema = new Schema({
         required:[true, 'Password is Required'],
         trim:true,
         minlength: [6,'Name will be 6 characters minimum'],
-        set:(v)=> bcrypt.hashSync(v, bcrypt.genSaltSync(10)),
     },
     refreshToken:{
         type:String
@@ -52,14 +51,14 @@ const userSchema = new Schema({
 
 },{timestamps:true});
 
-// userSchema.pre("save", async function (next){
-//     if(!this.isModified("password")){
-//         return next();
-//     }
+userSchema.pre("save", async function (next){
+    if(!this.isModified("password")){
+        return next();
+    }
         
-//     this.password = bcrypt.hash(this.password, 10)
-//     next()
-// })
+    this.password = bcrypt.hashSync(this.password, bcrypt.genSaltSync(10))
+    next()
+})
 userSchema.methods.isPasswordCorrect = async function (password) {
     return await bcrypt.compare(password,this.password)
 }

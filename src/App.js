@@ -3,6 +3,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import { cors_origin } from './constans.js';
 import cookieParser from 'cookie-parser';
+import userRouter from './routers/usrRoutes.js';
 
 const app = express();
 
@@ -20,7 +21,6 @@ app.use(cookieParser());
 
 
 
-import userRouter from './routers/usrRoutes.js';
 
 app.use('/api/v1/users', userRouter);
 
