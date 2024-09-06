@@ -1,4 +1,5 @@
 
+import mongoose from 'mongoose';
 import { refresh_token_secret_key } from '../constans.js';
 import { ApiError } from '../utils/apiError.js';
 import { ApiResponse } from '../utils/apiResponse.js';
@@ -226,8 +227,8 @@ export const currentUser = asyncHandler(async (req, res)=>{
 export const avatarUpdate = asyncHandler(async (req, res)=>{
     const avatarPath = req.file?.path;
 
-    // const oldUser = await User.findOne({_id: req.user._id});
-    // const oldAvatarUrl = oldUser.avatar;
+    const oldUser = await User.findOne({_id: req.user._id});
+    const oldAvatarUrl = oldUser.avatar;
 
     if(!avatarPath){
         throw new ApiError(400, 'Avatar missing..!')
@@ -241,11 +242,25 @@ export const avatarUpdate = asyncHandler(async (req, res)=>{
         $set:{
             avatar:avatar.url
         }
-    },{new:true}).select('-password')
+    },{new:true}).select('-password -refreshToken -watchHistry')
+
+    if(oldAvatarUrl){
+        const deleteImg = deleteCloudinaryImg(oldAvatarUrl);
+        if(!deleteImg){
+            throw new ApiError(400, 'Getting error old img deleting time ');
+        }
+        return res.status(200).json(new ApiResponse(200, user, 'Avatar updated'));
+    }
 
     return res.status(200).json(new ApiResponse(200, user, 'Avatar updated'));
 });
 export const coverImgUpdate = asyncHandler(async (req, res)=>{
+    const oldUser = await User.findOne({_id: req.user?._id});
+    const oldCoverImg = oldUser.coverImg;
+    if(!oldUser){
+        throw new ApiError(400, 'auth faild')
+
+    }
     const coverImgPath = req.file?.path;
 
     if(!coverImgPath){
@@ -260,24 +275,32 @@ export const coverImgUpdate = asyncHandler(async (req, res)=>{
         $set:{
             coverImg:coverImg.url
         }
-    },{new:true}).select('-password')
-
+    },{new:true}).select('-password -refreshToken -watchHistry');
+    if(oldCoverImg){
+        const deleteOldImg = deleteCloudinaryImg(oldCoverImg);
+        if(!deleteOldImg){
+            throw new ApiError(400, 'CoverImg delete faild');
+        }
+        return res.status(200).json(new ApiResponse(200, user, 'Cover image updated'));
+    }
     return res.status(200).json(new ApiResponse(200, user, 'Cover image updated'));
 });
 export const avatarImgDelete = asyncHandler(async (req, res)=>{
+    // const id = mongoose.Types.ObjectId(req.user?._id);
+    console.log(req.user)
     // const user = await User.findById(req.user._id);
     // const oldAvatarUrl = user.avatar;
         
-    const deletedImg = deleteCloudinaryImg(oldAvatarUrl);
-    if(!deletedImg){
-        throw new ApiError(400, 'Old img delete faild')
-    }
+    // const deletedImg = deleteCloudinaryImg(oldAvatarUrl);
+    // if(!deletedImg){
+    //     throw new ApiError(400, 'Old img delete faild')
+    // }
 
     return res.status(200).json({success:true, message:''});
 });
 
 export const channelProfile = asyncHandler(async (req, res)=>{
-        const {username} = req.params;
+        const username = req.params.username;
         if(!username?.trim()){
             throw new ApiError(400, 'Username is missing')
         }
@@ -341,6 +364,48 @@ export const channelProfile = asyncHandler(async (req, res)=>{
 
     return res.status(200).json(new ApiResponse(200, channel[0], 'Channel retured'));
 });
-
+export const userWatchHistry = asyncHandler(async (req, res)=>{
+    const user = await User.aggregate([
+        {
+            $match:{
+                _id: new mongoose.Types.ObjectId(req.user?._id)
+            }
+        },
+        {
+            $lookup:{
+                from: 'videos',
+                localField: 'watchHistry',
+                foreignField:'_id',
+                as:'watchHistry',
+                pipeline:[
+                    {
+                        $lookup:{
+                            from: 'users',
+                            localField: 'owner',
+                            foreignField:'_id',
+                            as:'owner',
+                            pipeline:[
+                                {
+                                    $project:{
+                                        function:1,
+                                        username:1,
+                                        avatar:1
+                                    }
+                                }
+                            ]
+                        }
+                    },{
+                        $addFields:{
+                            owner:{
+                                $first: '$owner'
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ])
+    return res.status(200).json(new ApiResponse(200, user[0].watchHistry," User Watch histry"))
+});
 
 
