@@ -20,103 +20,112 @@ const genAccessAndRefreshToken = async (userId)=>{
 
         return {accessToken,refreshToken}
     } catch (error) {
-        throw new ApiError(500, 'Somthing went wrong..!');
+        return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
     }
 };
 
 export const registerUser = asyncHandler( async (req, res) =>{
     const {fullname, email, username, password} = req.body;
 
-    if([fullname, email, username, password].some((field) => field?.trim() === '')){
-        throw new ApiError(400, 'All field is required...!')
-    }
-
-    const userExist = await User.findOne({
-        $or:[{username}, {email}]
-    });
-    if(userExist){
-        throw new ApiError(409, 'Username or email already exists..!')
-    }
-
-    const avatarLocalPath  = req.files?.avatar[0]?.path;
-    let coverImgLocalPath;
-    if(req.files && Array.isArray(req.files.coverImg)){
-        coverImgLocalPath = req.files.coverImg[0].path;
-    }
-    if(password.length < 6){
-
-        throw new ApiError(400, 'Password too short...!')
-    }
-
-    if(!avatarLocalPath){
-        throw new ApiError(400, 'Avatar is required...!')
-    }
+    try {
+        if([fullname, email, username, password].some((field) => field?.trim() === '')){
+            throw new ApiError(400, 'All field is required...!')
+        }
     
-    const avatar = await uploadOnCloudinary(avatarLocalPath);
-    const coverImg = await uploadOnCloudinary(coverImgLocalPath);
-
+        const userExist = await User.findOne({
+            $or:[{username}, {email}]
+        });
+        if(userExist){
+            throw new ApiError(409, 'Username or email already exists..!')
+        }
     
-    if(!avatar){
-        throw new ApiError(400, 'Avatar upload faild...!')
-    }
-    const avatarUrlSqureArry = avatar.url.split('/');
-    const getImgId = avatarUrlSqureArry[avatarUrlSqureArry.length -2]
-    const getImgName = avatarUrlSqureArry[avatarUrlSqureArry.length -1]
-    const getIdName = `${getImgId}/${getImgName}`;
-    const avatarSqureUrl = 'https://res.cloudinary.com/dhw3jdygg/image/upload/w_1000,ar_1:1,c_fill,g_auto,e_art:hokusai/'+getIdName;
+        const avatarLocalPath  = req.files?.avatar[0]?.path;
+        let coverImgLocalPath;
+        if(req.files && Array.isArray(req.files.coverImg)){
+            coverImgLocalPath = req.files.coverImg[0].path;
+        }
+        if(password.length < 6){
     
-    const user = await User.create({
-        fullname,
-        avatar: avatarSqureUrl,
-        coverImg: coverImg?.url || '',
-        email: email.toLowerCase(),
-        password,
-        username: username.toLowerCase()
-    });
-    const createdUser = await User.findById(user._id).select("-password -watchHistry -refreshToken");
-    if(!createdUser){
-        throw new ApiError(500, 'Register faild...!')
+            throw new ApiError(400, 'Password too short...!')
+        }
+    
+        if(!avatarLocalPath){
+            throw new ApiError(400, 'Avatar is required...!')
+        }
+        
+        const avatar = await uploadOnCloudinary(avatarLocalPath, `Users_images/${req.user.username}`, "avatar");
+        const coverImg = await uploadOnCloudinary(coverImgLocalPath, `Users_images/${req.user.username}`, "coverImg");
+    
+        
+        if(!avatar){
+            throw new ApiError(400, 'Avatar upload faild...!')
+        }
+        const avatarUrlSqureArry = avatar.url.split('/');
+        const getFolder = avatarUrlSqureArry[avatarUrlSqureArry.length -2]
+        const getImgId = avatarUrlSqureArry[avatarUrlSqureArry.length -3]
+        const getImgName = avatarUrlSqureArry[avatarUrlSqureArry.length -1]
+        const getIdName = `${getImgId}/${getFolder}/${getImgName}`;
+        const avatarSqureUrl = 'https://res.cloudinary.com/dhw3jdygg/image/upload/w_1000,ar_1:1,c_fill,g_auto,e_art:hokusai/'+getIdName;
+        
+        const user = await User.create({
+            fullname,
+            avatar: avatarSqureUrl,
+            coverImg: coverImg?.url || '',
+            email: email.toLowerCase(),
+            password,
+            username: username.toLowerCase()
+        });
+        const createdUser = await User.findById(user._id).select("-password -watchHistry -refreshToken");
+        if(!createdUser){
+            throw new ApiError(500, 'Register faild...!')
+        }
+        return res.status(201).json(
+            new ApiResponse(200, 'User created successfully....!', createdUser)
+        )
+    } catch (error) {
+        return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
     }
-    return res.status(201).json(
-        new ApiResponse(200, createdUser, 'User created successfully....!')
-    )
 });
 
 export const loginUser = asyncHandler(async (req, res)=>{
     const {username, email, password} = req.body;
-    if(!username && !email){
-        throw new ApiError(400, 'Username or Email is required...!')
-    }
-
-    const user = await User.findOne({$or:[{username},{email}]});
-
-    if(!user){
-        throw new ApiError(404, 'User not found');
-    }
-
-    const isPasswordValid = await user.isPasswordCorrect(password);
-    if(!isPasswordValid){
-        throw new ApiError(401, 'Wrong password...!');
-    }
-
-
-    const {accessToken, refreshToken} = await genAccessAndRefreshToken(user._id);
-
-    const loggedUser = await User.findById(user._id).select('-password -refreshToken');
-
-        const options = {
-            httpOnly: true,
-            secure:true
+    try {
+        if(!username && !email){
+            throw new ApiError(400, 'Username or Email is required...!')
         }
-
-        return res.status(200)
-        .cookie('accessToken', accessToken, options)
-        .cookie('refreshToken', refreshToken ,options)
-        .json(new ApiResponse(200, {
-            user: loggedUser,
-            accessToken,
-            refreshToken
-        }, 'User logged In successfully'));
+    
+        const user = await User.findOne({$or:[{username},{email}]});
+    
+        if(!user){
+            throw new ApiError(404, 'User not found');
+        }
+    
+        const isPasswordValid = await user.isPasswordCorrect(password);
+        if(!isPasswordValid){
+            throw new ApiError(401, 'Wrong password...!');
+        }
+    
+    
+        const {accessToken, refreshToken} = await genAccessAndRefreshToken(user._id);
+    
+        const loggedUser = await User.findById(user._id).select('-password -refreshToken');
+    
+            const options = {
+                httpOnly: true,
+                secure:true
+            }
+    
+            return res.status(200)
+            .cookie('accessToken', accessToken, options)
+            .cookie('refreshToken', refreshToken ,options)
+            .json(new ApiResponse(200, {
+                user: loggedUser,
+                accessToken,
+                refreshToken
+            }, 'User logged In successfully'));
+    } catch (error) {
+        return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
+    }
 
 
 
@@ -172,9 +181,9 @@ export const refreshAccessToken =  asyncHandler(async (req, res)=>{
         return res.status(200)
         .cookie('accessToken', accessToken, options)
         .cookie('refreshToken', refreshToken, options)
-        .json(ApiResponse(200,{accessToken,refreshToken},'Token refreshed'))
+        .json( new ApiResponse(200,'Token refreshed', {accessToken,refreshToken},))
     } catch (error) {
-        throw new ApiError(500, 'Server error')
+        return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
     }
 
 });
@@ -195,108 +204,97 @@ export const changePassword = asyncHandler(async (req, res)=>{
     return res.status(200).json(new ApiResponse(200, 'Password is updated'));
 });
 export const updateUserInfo = asyncHandler(async (req, res)=>{
-    const {fullname, email} = req.body;
-
-    
-    if(email || fullname){
-        const user = await User.findByIdAndUpdate(req.user._id,
-        {
-            $set:{
-                email,
-                fullname
+    try {
+        const {fullname, email, username} = req.body;
+            if(!email && !fullname && !username){
+                throw new ApiError(500, 'Updated..!');
             }
-        },{
-           new:true 
-        }   
 
-        ).select('-password');
-        if(!user){
-            throw new ApiError(500, 'Update fail...')
-        }
-        return res.status(200).json(ApiResponse(200, user, 'updated user...'))
-        }
+            const user = await User.findOneAndUpdate({_id: req.user._id},
+            {
+                $set:{
+                    email,
+                    fullname,
+                    username
+                }
+            },{
+               new:true 
+            }   
     
+            ).select('-password');
 
-    return res.status(200).json(new ApiResponse(200, 'Updating canceled'));
+            return res.status(200).json(new ApiResponse(200, user, 'updated user...'))
+            
+    } catch (error) {
+        return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
+    }
 });
 
 export const currentUser = asyncHandler(async (req, res)=>{
 
-    return res.status(200).json(new ApiResponse(200, req.user, 'User is returned'));
+    try {
+        const user = req.user;
+        if(!user){
+            throw new ApiError(400, 'Please login first..!')
+            
+        }
+    
+        return res.status(200).json(new ApiResponse(200, user, 'User is returned'));
+    } catch (error) {
+        return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
+    }
 });
 export const avatarUpdate = asyncHandler(async (req, res)=>{
-    const avatarPath = req.file?.path;
-
-    const oldUser = await User.findOne({_id: req.user._id});
-    const oldAvatarUrl = oldUser.avatar;
-
-    if(!avatarPath){
-        throw new ApiError(400, 'Avatar missing..!')
-    }
-    const avatar = await uploadOnCloudinary(avatarPath);
-    if(!avatar){
-        throw new ApiError(400, 'Avatar saving faild');
-    }
-
-    const user = await User.findByIdAndUpdate(req.user?._id,{
-        $set:{
-            avatar:avatar.url
+    try {
+        const avatarPath = req.file?.path;
+    
+        if(!avatarPath){
+            throw new ApiError(400, 'Avatar missing..!')
         }
-    },{new:true}).select('-password -refreshToken -watchHistry')
-
-    if(oldAvatarUrl){
-        const deleteImg = deleteCloudinaryImg(oldAvatarUrl);
-        if(!deleteImg){
-            throw new ApiError(400, 'Getting error old img deleting time ');
+        const avatarImg = await uploadOnCloudinary(avatarPath, `Users_images/${req.user.username}`, "avatar");
+        if(!avatarImg){
+            throw new ApiError(400, 'Avatar saving faild');
         }
-        return res.status(200).json(new ApiResponse(200, user, 'Avatar updated'));
-    }
+        const avatarUrlSqureArry = avatarImg.url.split('/');
+        const getFolder = avatarUrlSqureArry[avatarUrlSqureArry.length -2]
+        const getImgId = avatarUrlSqureArry[avatarUrlSqureArry.length -3]
+        const getImgName = avatarUrlSqureArry[avatarUrlSqureArry.length -1]
+        const getIdName = `${getImgId}/${getFolder}/${getImgName}`;
+        const avatarSqureUrl = 'https://res.cloudinary.com/dhw3jdygg/image/upload/w_1000,ar_1:1,c_fill,g_auto,e_art:hokusai/'+getIdName;
+        const user = await User.findByIdAndUpdate(req.user?._id,{
+            $set:{
+                avatar:avatarSqureUrl
+            }
+        },{new:true}).select('-password -refreshToken -watchHistry')
 
-    return res.status(200).json(new ApiResponse(200, user, 'Avatar updated'));
+        return res.status(200).json(new ApiResponse(200, 'Avatar updated', user));
+    } catch (error) {
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
+    }
 });
 export const coverImgUpdate = asyncHandler(async (req, res)=>{
-    const oldUser = await User.findOne({_id: req.user?._id});
-    const oldCoverImg = oldUser.coverImg;
-    if(!oldUser){
-        throw new ApiError(400, 'auth faild')
 
-    }
-    const coverImgPath = req.file?.path;
-
-    if(!coverImgPath){
-        throw new ApiError(400, 'Cover Image missing..!')
-    }
-    const coverImg = await uploadOnCloudinary(coverImgPath);
-    if(!coverImg){
-        throw new ApiError(400, 'Avatar saving faild');
-    }
-
-    const user = await User.findByIdAndUpdate(req.user?._id,{
-        $set:{
-            coverImg:coverImg.url
+    try {
+        const coverImgPath = req.file?.path;
+    
+        if(!coverImgPath){
+            throw new ApiError(400, 'Cover Image missing..!')
         }
-    },{new:true}).select('-password -refreshToken -watchHistry');
-    if(oldCoverImg){
-        const deleteOldImg = deleteCloudinaryImg(oldCoverImg);
-        if(!deleteOldImg){
-            throw new ApiError(400, 'CoverImg delete faild');
+        const coverImg = await uploadOnCloudinary(coverImgPath, `Users_images/${req.user.username}`, "coverImg");
+        if(!coverImg){
+            throw new ApiError(400, 'Avatar saving faild');
         }
+    
+        const user = await User.findByIdAndUpdate(req.user?._id,{
+            $set:{
+                coverImg:coverImg.url
+            }
+        },{new:true}).select('-password -refreshToken -watchHistry');
+    
         return res.status(200).json(new ApiResponse(200, user, 'Cover image updated'));
+    } catch (error) {
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
-    return res.status(200).json(new ApiResponse(200, user, 'Cover image updated'));
-});
-export const avatarImgDelete = asyncHandler(async (req, res)=>{
-    // const id = mongoose.Types.ObjectId(req.user?._id);
-    console.log(req.user)
-    // const user = await User.findById(req.user._id);
-    // const oldAvatarUrl = user.avatar;
-        
-    // const deletedImg = deleteCloudinaryImg(oldAvatarUrl);
-    // if(!deletedImg){
-    //     throw new ApiError(400, 'Old img delete faild')
-    // }
-
-    return res.status(200).json({success:true, message:''});
 });
 
 export const channelProfile = asyncHandler(async (req, res)=>{
@@ -406,6 +404,14 @@ export const userWatchHistry = asyncHandler(async (req, res)=>{
         }
     ])
     return res.status(200).json(new ApiResponse(200, user[0].watchHistry," User Watch histry"))
+});
+
+export const imgDelete = asyncHandler(async (req, res)=>{
+    const url= "https://res.cloudinary.com/dhw3jdygg/image/upload/v1725693338/Avatar/blh68j7frvipkqockcch.jpg"
+
+    deleteCloudinaryImg(url)
+    
+    return res.status(200).json({message:" User Watch histry"})
 });
 
 

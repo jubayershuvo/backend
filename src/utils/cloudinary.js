@@ -12,12 +12,12 @@ cloudinary.config({
     api_secret: cloudinary_api_secret_key // Click 'View API Keys' above to copy your API secret
 });
 
-const uploadOnCloudinary = async (filePath)=>{
+const uploadOnCloudinary = async (filePath, folder , public_id)=>{
     try {
         if(!filePath) {
             return null
         };
-        const res = await cloudinary.uploader.upload(filePath)
+        const res = await cloudinary.uploader.upload(filePath,{folder, public_id, resource_type: 'image'})
         fs.unlinkSync(filePath);
         return res;
     } catch (error) {

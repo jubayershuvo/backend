@@ -5,6 +5,7 @@ import {
     channelProfile, 
     coverImgUpdate, 
     currentUser, 
+    imgDelete, 
     loginUser, 
     logoutUser, 
     refreshAccessToken, 
@@ -14,10 +15,12 @@ import {
  } from "../controllers/userController.js";
 import { upload } from './../middlewares/multerMiddleware.js';
 import { verifyJWT } from "../middlewares/authMiddleware.js";
+import { isLogouted } from "../middlewares/isLogoutMiddleware.js";
 
 const userRouter = Router();
 
 userRouter.route('/register').post(
+    isLogouted,
     upload.fields([
         {
             name: 'avatar',
@@ -31,7 +34,7 @@ userRouter.route('/register').post(
     registerUser
 );
 userRouter.route('/login').post(
-    
+    isLogouted,
     loginUser
 );
 userRouter.route('/logout').get(
@@ -39,6 +42,7 @@ userRouter.route('/logout').get(
     logoutUser
 );
 userRouter.route('/refresh-token').get(
+    verifyJWT,
     refreshAccessToken
 );
 userRouter.route('/update-password').post(
@@ -72,7 +76,9 @@ userRouter.route('/history').get(
     userWatchHistry
 );
 
-
+userRouter.route('/delete').get(
+    imgDelete
+)
 
 
 export default userRouter;
