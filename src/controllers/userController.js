@@ -5,7 +5,7 @@ import { ApiError } from '../utils/apiError.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import {asyncHandler} from '../utils/asyncHandler.js';
 import { uploadOnCloudinary } from '../utils/cloudinary.js';
-import deleteCloudinaryImg from '../utils/cloudinaryImgDelete.js';
+import deleteCloudinaryImg from '../utils/cloudinaryFolderDelete.js';
 import { User } from './../models/userModel.js';
 import jwt from 'jsonwebtoken';
 
