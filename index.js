@@ -1,6 +1,6 @@
-import app from './App.js'
-import { port } from './constans.js';
-import db_connect from './db/confg.js';
+import app from './src/App.js'
+import { port } from './src/constans.js';
+import db_connect from './src/db/confg.js';
 
 app.get('/',(req, res)=>{
     return res.status(200).json({success:true, message:"Server running"});
