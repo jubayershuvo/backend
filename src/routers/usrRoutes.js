@@ -5,7 +5,6 @@ import {
     channelProfile, 
     coverImgUpdate, 
     currentUser, 
-    imgDelete, 
     loginUser, 
     logoutUser, 
     refreshAccessToken, 
@@ -71,14 +70,11 @@ userRouter.route('/channel/:username').get(
     verifyJWT,
     channelProfile
 );
-userRouter.route('/history').get(
+userRouter.route('/watch_history').get(
     verifyJWT,
     userWatchHistry
 );
 
-userRouter.route('/delete').get(
-    imgDelete
-)
 
 
 export default userRouter;

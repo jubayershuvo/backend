@@ -1,13 +1,12 @@
 
 import mongoose from 'mongoose';
+import jwt from 'jsonwebtoken';
 import { refresh_token_secret_key } from '../constans.js';
 import { ApiError } from '../utils/apiError.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import {asyncHandler} from '../utils/asyncHandler.js';
 import { uploadOnCloudinary } from '../utils/cloudinary.js';
-import deleteCloudinaryImg from '../utils/cloudinaryFolderDelete.js';
 import { User } from './../models/userModel.js';
-import jwt from 'jsonwebtoken';
 
 const genAccessAndRefreshToken = async (userId)=>{
     try {
@@ -62,9 +61,9 @@ export const registerUser = asyncHandler( async (req, res) =>{
         }
         const avatarUrlSqureArry = avatar.url.split('/');
         const getFolder = avatarUrlSqureArry[avatarUrlSqureArry.length -2]
-        const getImgId = avatarUrlSqureArry[avatarUrlSqureArry.length -3]
+        const getImgId = avatarUrlSqureArry[avatarUrlSqureArry.length -4]
         const getImgName = avatarUrlSqureArry[avatarUrlSqureArry.length -1]
-        const getIdName = `${getImgId}/${getFolder}/${getImgName}`;
+        const getIdName = `${getImgId}/Users_image/${getFolder}/${getImgName}`;
         const avatarSqureUrl = 'https://res.cloudinary.com/dhw3jdygg/image/upload/w_1000,ar_1:1,c_fill,g_auto,e_art:hokusai/'+getIdName;
         
         const user = await User.create({
@@ -139,14 +138,9 @@ export const logoutUser = asyncHandler(async (req, res)=>{
         throw new ApiError(404, 'Logout faild')
     }
 
-    const options = {
-        httpOnly: true,
-        secure:true
-    }
-
     return res.status(200)
-    .clearCookie('accessToken', options)
-    .clearCookie('refreshToken', options)
+    .clearCookie('accessToken')
+    .clearCookie('refreshToken')
     .json(new ApiResponse(200, `User logged out successfully..!`));
 });
 
@@ -205,8 +199,8 @@ export const changePassword = asyncHandler(async (req, res)=>{
 });
 export const updateUserInfo = asyncHandler(async (req, res)=>{
     try {
-        const {fullname, email, username} = req.body;
-            if(!email && !fullname && !username){
+        const {fullname, email} = req.body;
+            if(!email && !fullname){
                 throw new ApiError(500, 'Updated..!');
             }
 
@@ -214,8 +208,7 @@ export const updateUserInfo = asyncHandler(async (req, res)=>{
             {
                 $set:{
                     email,
-                    fullname,
-                    username
+                    fullname
                 }
             },{
                new:true 
@@ -404,14 +397,6 @@ export const userWatchHistry = asyncHandler(async (req, res)=>{
         }
     ])
     return res.status(200).json(new ApiResponse(200, user[0].watchHistry," User Watch histry"))
-});
-
-export const imgDelete = asyncHandler(async (req, res)=>{
-    const url= "https://res.cloudinary.com/dhw3jdygg/image/upload/v1725693338/Avatar/blh68j7frvipkqockcch.jpg"
-
-    deleteCloudinaryImg(url)
-    
-    return res.status(200).json({message:" User Watch histry"})
 });
 
 
