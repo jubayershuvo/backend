@@ -168,7 +168,7 @@ export const loginUser = asyncHandler(async (req, res)=>{
                 refreshToken
             }));
     } catch (error) {
-        return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
 
 
@@ -452,4 +452,81 @@ export const userWatchHistry = asyncHandler(async (req, res)=>{
     ])
     return res.status(200).json(new ApiResponse(200," User Watch histry", user[0].watchHistry))
 });
+
+export const deleteUser = asyncHandler( async (req, res) =>{
+    const {fullname, email, username, password} = req.body;
+
+    try {
+        if([fullname, email, username, password].some((field) => field?.trim() === '')){
+            throw new ApiError(400, 'All field is required...!')
+        }
+    
+        const userExist = await User.findOne({
+            $or:[{username}, {email}]
+        });
+        if(userExist){
+            throw new ApiError(409, 'Username or email already exists..!')
+        }
+    
+        const avatarLocalPath  = req.files?.avatar[0]?.path;
+        let coverImgLocalPath;
+        if(req.files && Array.isArray(req.files.coverImg)){
+            coverImgLocalPath = req.files.coverImg[0].path;
+        }
+        if(password.length < 6){
+    
+            throw new ApiError(400, 'Password too short...!')
+        }
+    
+        if(!avatarLocalPath){
+            throw new ApiError(400, 'Avatar is required...!')
+        }
+        
+        const avatar = await uploadOnCloudinary(avatarLocalPath, `Users_images/${username}`, "avatar");
+        const coverImg = await uploadOnCloudinary(coverImgLocalPath, `Users_images/${username}`, "coverImg");
+    
+        
+        if(!avatar){
+            throw new ApiError(400, 'Avatar upload faild...!')
+        }
+        const avatarUrlSqureArry = avatar.url.split('/');
+        const getFolder = avatarUrlSqureArry[avatarUrlSqureArry.length -2]
+        const getImgId = avatarUrlSqureArry[avatarUrlSqureArry.length -4]
+        const getImgName = avatarUrlSqureArry[avatarUrlSqureArry.length -1]
+        const getIdName = `${getImgId}/Users_image/${getFolder}/${getImgName}`;
+        const avatarSqureUrl = 'https://res.cloudinary.com/dhw3jdygg/image/upload/w_1000,ar_1:1,c_fill,g_auto,e_art:hokusai/'+getIdName;
+        
+        
+        const user = {
+            fullname,
+            avatar: avatarSqureUrl,
+            coverImg: coverImg?.url || '',
+            email: email.toLowerCase(),
+            password,
+            username: username.toLowerCase()
+        };
+        if(!user){
+            throw new ApiError(500, 'User save faild')
+        }
+        req.app.locals.USER = user;
+        try {
+            const code = otpGenerator.generate(6, {lowerCaseAlphabets:false, upperCaseAlphabets:false,specialChars:false});
+            req.app.locals.OTP = code;
+            const options = {
+                to: email,
+                subject: "Registration mail",
+                html: `<h1>Welcome ${username}</h1><br><p>Thank you for register</p><br><h1>CODE:${code}</h1>`,
+              };
+              await sendEmail(options);
+        } catch (error) {
+            res.status(401).json({success:false, message:'mail send faild'})
+            return;
+        }
+        console.log(req.app.locals.USER)
+        return res.status(201).json( new ApiResponse(200, 'User created successfully....!', req.app.locals.USER))
+    } catch (error) {
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
+    }
+});
+
 
