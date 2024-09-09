@@ -11,9 +11,7 @@ const app = express();
 app.use(express.json({limit:"1MB"}));
 app.use(express.urlencoded({extended:true, limit:"1MB"}));
 app.use(morgan('tiny'));
-app.use(cors({
-    origin: cors_origin,
-}));
+app.use(cors());
 app.use(express.static("public"));
 app.use(cookieParser());
 
