@@ -13,7 +13,7 @@ export const verifyJWT = asyncHandler(async (req, res, next)=>{
         }
     
         const decoded = jwt.verify(Token, access_token_secret_key);
-        const user = await User.findById(decoded._id).select('-password -refreshToken');
+        const user = await User.findById(decoded._id).select('-password');
         if(!user){
             throw new ApiError(401, 'Session expired..!')
         }

@@ -14,3 +14,5 @@ export const cloudinary_api_key = process.env.CLOUDINARY_API_KEY;
 export const cloudinary_api_secret_key = process.env.CLOUDINARY_API_SECRET_KEY;
 export const cloudinary_url = process.env.CLOUDINARY_URL;
 export const cloudinary_name = process.env.CLOUDINARY_NAME;
+export const smtp_username = process.env.SMTP_USERNAME;
+export const smtp_password = process.env.SMTP_PASSWORD;

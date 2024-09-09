@@ -9,6 +9,7 @@ import {
     logoutUser, 
     refreshAccessToken, 
     registerUser, 
+    registerVerify, 
     updateUserInfo,
     userWatchHistry
  } from "../controllers/userController.js";
@@ -31,6 +32,10 @@ userRouter.route('/register').post(
         }
     ]),
     registerUser
+);
+userRouter.route('/activate-user').post(
+    isLogouted,
+    registerVerify
 );
 userRouter.route('/login').post(
     isLogouted,

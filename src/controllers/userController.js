@@ -1,12 +1,14 @@
 
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
+import otpGenerator from 'otp-generator';
 import { refresh_token_secret_key } from '../constans.js';
 import { ApiError } from '../utils/apiError.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import {asyncHandler} from '../utils/asyncHandler.js';
 import { uploadOnCloudinary } from '../utils/cloudinary.js';
 import { User } from './../models/userModel.js';
+import { sendEmail } from '../utils/mailer.js';
 
 const genAccessAndRefreshToken = async (userId)=>{
     try {
@@ -66,26 +68,69 @@ export const registerUser = asyncHandler( async (req, res) =>{
         const getIdName = `${getImgId}/Users_image/${getFolder}/${getImgName}`;
         const avatarSqureUrl = 'https://res.cloudinary.com/dhw3jdygg/image/upload/w_1000,ar_1:1,c_fill,g_auto,e_art:hokusai/'+getIdName;
         
-        const user = await User.create({
+        
+        const user = {
             fullname,
             avatar: avatarSqureUrl,
             coverImg: coverImg?.url || '',
             email: email.toLowerCase(),
             password,
             username: username.toLowerCase()
-        });
-        const createdUser = await User.findById(user._id).select("-password -watchHistry -refreshToken");
-        if(!createdUser){
-            throw new ApiError(500, 'Register faild...!')
+        };
+        if(!user){
+            throw new ApiError(500, 'User save faild')
         }
-        return res.status(201).json(
-            new ApiResponse(200, 'User created successfully....!', createdUser)
-        )
+        req.app.locals.USER = user;
+        try {
+            const code = otpGenerator.generate(6, {lowerCaseAlphabets:false, upperCaseAlphabets:false,specialChars:false});
+            req.app.locals.OTP = code;
+            const options = {
+                to: email,
+                subject: "Registration mail",
+                html: `<h1>Welcome ${username}</h1><br><p>Thank you for register</p><br><h1>CODE:${code}</h1>`,
+              };
+              await sendEmail(options);
+        } catch (error) {
+            res.status(401).json({success:false, message:'mail send faild'})
+            return;
+        }
+        console.log(req.app.locals.USER)
+        return res.status(201).json( new ApiResponse(200, 'User created successfully....!', req.app.locals.USER))
     } catch (error) {
-        return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
 });
+export const registerVerify = asyncHandler( async (req, res) =>{
+    const code = req.body.code;
+    const user = req.app.locals.USER;
+    const saved_code = req.app.locals.OTP;
 
+    if(!saved_code){
+        throw new ApiError(400, 'Unauthorized request..!')
+    }
+    if(!code){
+        throw new ApiError(400, 'Enter Code first..!')
+    }
+
+    try {
+        if(saved_code !== code){
+            throw new ApiError(400, 'Wrong OTP...!')
+        }
+        const createdUser = await User.create({
+            fullname: user.fullname,
+            username: user.username,
+            email: user.email,
+            password: user.password,
+            avatar: user.avatar,
+            coverImg: user.coverImg || '',
+        }).select('-password');
+        req.app.locals.OTP = null;
+        req.app.locals.USER = null;
+        return res.status(201).json( new ApiResponse(200, 'User created successfully....!', createdUser))
+    } catch (error) {
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
+    }
+});
 export const loginUser = asyncHandler(async (req, res)=>{
     const {username, email, password} = req.body;
     try {
@@ -117,11 +162,11 @@ export const loginUser = asyncHandler(async (req, res)=>{
             return res.status(200)
             .cookie('accessToken', accessToken, options)
             .cookie('refreshToken', refreshToken ,options)
-            .json(new ApiResponse(200, {
+            .json(new ApiResponse(200, 'User logged In successfully', {
                 user: loggedUser,
                 accessToken,
                 refreshToken
-            }, 'User logged In successfully'));
+            }));
     } catch (error) {
         return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
     }
@@ -183,19 +228,28 @@ export const refreshAccessToken =  asyncHandler(async (req, res)=>{
 });
 
 export const changePassword = asyncHandler(async (req, res)=>{
-    const {oldPassword, newPassword} = req.body;
+    try {
+        const {oldPassword, newPassword} = req.body;
+        if(oldPassword === newPassword){
 
-    const user = await User.findById(req.user?._id);
-    const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
-    if(!isPasswordCorrect){
-        throw new ApiError(400, 'Old password is wrong..!')
-    };
+            throw new ApiError(400, 'Old password and New password almost same..!')
+        }
+    
+        const user = await User.findById(req.user?._id);
+        const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
+        if(!isPasswordCorrect){
+        };
+    
+    
+        user.password = newPassword;
+        user.save({validateBeforeSave:false})
 
-
-    user.password = newPassword;
-    user.save({validateBeforeSave:false})
-
-    return res.status(200).json(new ApiResponse(200, 'Password is updated'));
+        const updatedUser = await User.findById(req.user?._id).select('-password');
+    
+        return res.status(200).json(new ApiResponse(200, 'Password is updated', updatedUser));
+    } catch (error) {
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
+    }
 });
 export const updateUserInfo = asyncHandler(async (req, res)=>{
     try {
@@ -216,7 +270,7 @@ export const updateUserInfo = asyncHandler(async (req, res)=>{
     
             ).select('-password');
 
-            return res.status(200).json(new ApiResponse(200, user, 'updated user...'))
+            return res.status(200).json(new ApiResponse(200, 'updated user...', user))
             
     } catch (error) {
         return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
@@ -232,7 +286,7 @@ export const currentUser = asyncHandler(async (req, res)=>{
             
         }
     
-        return res.status(200).json(new ApiResponse(200, user, 'User is returned'));
+        return res.status(200).json(new ApiResponse(200, 'User is returned', user));
     } catch (error) {
         return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
     }
@@ -284,7 +338,7 @@ export const coverImgUpdate = asyncHandler(async (req, res)=>{
             }
         },{new:true}).select('-password -refreshToken -watchHistry');
     
-        return res.status(200).json(new ApiResponse(200, user, 'Cover image updated'));
+        return res.status(200).json(new ApiResponse(200, 'Cover image updated', user));
     } catch (error) {
         return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
@@ -353,7 +407,7 @@ export const channelProfile = asyncHandler(async (req, res)=>{
         }
     
 
-    return res.status(200).json(new ApiResponse(200, channel[0], 'Channel retured'));
+    return res.status(200).json(new ApiResponse(200, 'Channel retured', channel[0]));
 });
 export const userWatchHistry = asyncHandler(async (req, res)=>{
     const user = await User.aggregate([
@@ -396,7 +450,6 @@ export const userWatchHistry = asyncHandler(async (req, res)=>{
             }
         }
     ])
-    return res.status(200).json(new ApiResponse(200, user[0].watchHistry," User Watch histry"))
+    return res.status(200).json(new ApiResponse(200," User Watch histry", user[0].watchHistry))
 });
-
 
