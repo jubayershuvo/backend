@@ -11,14 +11,19 @@ const transporter = nodemailer.createTransport({
         }
     });
 
-export const sendEmail = (options) => {
-    const { to, subject, html } = options;
-    const mailOptions = {
-        from: smtp_username,
-        to,
-        subject,
-        html
-    };
-
-    return transporter.sendMail(mailOptions);
+export const sendEmail = async (options) => {
+    try {
+        const { to, subject, html } = options;
+        const mailOptions = {
+            from: smtp_username,
+            to,
+            subject,
+            html
+        };
+    
+         await transporter.sendMail(mailOptions);
+        return true;
+    } catch (error) {
+        return false;
+    }
 };

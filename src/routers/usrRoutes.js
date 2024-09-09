@@ -5,13 +5,17 @@ import {
     channelProfile, 
     coverImgUpdate, 
     currentUser, 
+    deleteUser, 
+    forgetCodeVerify,
     loginUser, 
     logoutUser, 
     refreshAccessToken, 
     registerUser, 
     registerVerify, 
     updateUserInfo,
-    userWatchHistry
+    userWatchHistry,
+    setPassword,
+    passwordRecovery
  } from "../controllers/userController.js";
 import { upload } from './../middlewares/multerMiddleware.js';
 import { verifyJWT } from "../middlewares/authMiddleware.js";
@@ -34,6 +38,22 @@ userRouter.route('/register').post(
     registerUser
 );
 userRouter.route('/activate-user').post(
+    isLogouted,
+    registerVerify
+);
+userRouter.route('/verify-code').post(
+    isLogouted,
+    forgetCodeVerify
+);
+userRouter.route('/forget-password').post(
+    isLogouted,
+    passwordRecovery
+);
+userRouter.route('/set-password').post(
+    isLogouted,
+    setPassword
+);
+userRouter.route('/recover-password').post(
     isLogouted,
     registerVerify
 );
@@ -78,6 +98,10 @@ userRouter.route('/channel/:username').get(
 userRouter.route('/watch_history').get(
     verifyJWT,
     userWatchHistry
+);
+userRouter.route('/delete-user').get(
+    verifyJWT,
+    deleteUser
 );
 
 

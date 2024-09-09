@@ -4,7 +4,7 @@ const deleteCloudinaryFolder = (folder)=>{
     try {
         async function deleteFolder() {
             console.log(folder)
-            await cloudinary.api.delete_resources_by_prefix(`Users_images/${folder}`);
+            await cloudinary.api.delete_resources_by_prefix(`Users_images/${folder}/`);
         }
         deleteFolder();
         return true;
