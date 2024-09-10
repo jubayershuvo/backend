@@ -121,20 +121,147 @@ export const refreshAdminAccessToken =  asyncHandler(async (req, res)=>{
 
 });
 
-
 export const currentAdmin = asyncHandler(async (req, res)=>{
 
     try {
-        const user = req.user;
-        if(!user){
+        const admin = req.admin;
+        if(!admin){
             throw new ApiError(400, 'Please login first..!')
             
         }
     
-        return res.status(200).json(new ApiResponse(200, 'User is returned', user));
+        return res.status(200).json(new ApiResponse(200, 'User is returned', admin));
     } catch (error) {
         return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
     }
 });
+
+export const banUser = asyncHandler(async (req, res)=>{
+
+    try {
+        const admin = req.admin;
+        if(!admin){
+            throw new ApiError(400, 'Please login first..!')            
+        }
+        
+        
+        
+        const {username} = req.params;
+        if(!username){
+            throw new ApiError(400, 'Provide an usernamme..!')            
+        }
+        const user = await User.findOne({username});
+        if(!user){
+            throw new ApiError(400, 'User Not found..!')
+        }
+        
+        if(user.isAdmin){
+            throw new ApiError(400, 'You can not ban an admin..!')
+        }
+        if(user.isBanned){
+            throw new ApiError(400, 'User already banned..!')
+        }
+
+        user.isBanned = true;
+        user.save({validateBeforeSave:false})
+
+    
+        return res.status(200).json(new ApiResponse(200, 'User banned...!', user));
+    } catch (error) {
+        return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
+    }
+});
+
+export const unbanUser = asyncHandler(async (req, res)=>{
+
+    try {
+        const admin = req.admin;
+        if(!admin){
+            throw new ApiError(400, 'Please login first..!')            
+        }
+        
+        
+        
+        const {username} = req.params;
+        if(!username){
+            throw new ApiError(400, 'Provide an usernamme..!')            
+        }
+        const user = await User.findOne({username});
+        if(!user){
+            throw new ApiError(400, 'User Not found..!');
+        }
+        
+        if(!user.isBanned){
+            throw new ApiError(400, 'User already unbanned..!');
+        }
+
+        user.isBanned = false;
+        user.save({validateBeforeSave:false})
+
+    
+        return res.status(200).json(new ApiResponse(200, 'User unbanned...!', user));
+    } catch (error) {
+        return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
+    }
+});
+
+export const allUsers = asyncHandler(async (req, res)=>{
+
+    try {
+        const admin = req.admin;
+        if(!admin){
+            throw new ApiError(400, 'Please login first..!')            
+        }
+        
+        const users = await User.find({isAdmin:false, isOwner:false});
+        if(!users){
+            throw new ApiError(400, 'Users Not found..!')
+        }
+    
+        return res.status(200).json(new ApiResponse(200, 'User banned...!', users));
+    } catch (error) {
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
+    }
+});
+
+export const allBannedUsers = asyncHandler(async (req, res)=>{
+
+    try {
+        const admin = req.admin;
+        if(!admin){
+            throw new ApiError(400, 'Please login first..!')            
+        }
+        
+        const users = await User.find({isAdmin:false, isBanned:true, isOwner:false});
+        if(!users){
+            throw new ApiError(400, 'Users Not found..!')
+        }
+    
+        return res.status(200).json(new ApiResponse(200, 'All banned users...!', users));
+    } catch (error) {
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message});
+    }
+});
+
+export const allUnbannedUsers = asyncHandler(async (req, res)=>{
+
+    try {
+        const admin = req.admin;
+        if(!admin){
+            throw new ApiError(400, 'Please login first..!')            
+        }
+        
+        const users = await User.find({isAdmin:false, isBanned:false, isOwner:false});
+        if(!users){
+            throw new ApiError(400, 'Users Not found..!')
+        }
+    
+        return res.status(200).json(new ApiResponse(200, 'All the fresh users...!', users));
+    } catch (error) {
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message});
+    }
+});
+
+
 
 

@@ -17,6 +17,9 @@ export const verifyAdminJWT = asyncHandler(async (req, res, next)=>{
         if(!admin){
             throw new ApiError(401, 'Session expired..!')
         }
+        if(!decoded.isAdmin){
+            throw new ApiError(401, 'You are not an admin..!')
+        }
     
         req.admin = admin;
         next();
