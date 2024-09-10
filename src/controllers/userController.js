@@ -86,16 +86,15 @@ export const registerUser = asyncHandler( async (req, res) =>{
             req.app.locals.OTP = code;
             const options = {
                 to: email,
-                subject: "Registration mail",
-                html: `<h1>Welcome ${username}</h1><br><p>Thank you for register</p><br><h1>CODE:${code}</h1>`,
+                subject: "Email verification code.",
+                html: `<h1>Hi ${username}</h1><br><p>Your registration code here.</p><br><h1>CODE: ${code}</h1>`,
               };
               await sendEmail(options);
         } catch (error) {
             res.status(401).json({success:false, message:'mail send faild'})
             return;
         }
-        console.log(req.app.locals.USER)
-        return res.status(201).json( new ApiResponse(200, 'User created successfully....!', req.app.locals.USER))
+        return res.status(201).json( new ApiResponse(200, 'Registration code was sended successfully....!', req.app.locals.USER))
     } catch (error) {
         return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
@@ -182,9 +181,20 @@ export const registerVerify = asyncHandler( async (req, res) =>{
             avatar: user.avatar,
             coverImg: user.coverImg || '',
         });
+        try {
+            const options = {
+                to: createdUser.email,
+                subject: "Your registration email is confirmed.",
+                html: `<h1>Welcome ${createdUser.fullname}</h1><br><p>Thank you for register</p>`,
+              };
+              await sendEmail(options);
+        } catch (error) {
+            res.status(401).json({success:false, message:'mail send faild'})
+            return;
+        }
         req.app.locals.OTP = null;
         req.app.locals.USER = null;
-        return res.status(201).json( new ApiResponse(200, 'User created successfully....!', createdUser))
+        return res.status(201).json( new ApiResponse(200, 'User verified successfully....!', createdUser))
     } catch (error) {
         return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
@@ -201,10 +211,15 @@ export const loginUser = asyncHandler(async (req, res)=>{
         if(!user){
             throw new ApiError(404, 'User not found');
         }
+        
     
         const isPasswordValid = await user.isPasswordCorrect(password);
         if(!isPasswordValid){
             throw new ApiError(401, 'Wrong password...!');
+        }
+
+        if(user.isBanned){
+            throw new ApiError(401, 'User was banned..!');
         }
     
     
@@ -271,7 +286,7 @@ export const logoutUser = asyncHandler(async (req, res)=>{
     if(!loggedOutUser){
         throw new ApiError(404, 'Logout faild')
     }
-
+    req.user = {};
     return res.status(200)
     .clearCookie('accessToken')
     .clearCookie('refreshToken')
@@ -544,22 +559,36 @@ export const userWatchHistry = asyncHandler(async (req, res)=>{
 });
 
 export const deleteUser = asyncHandler( async (req, res) =>{
-    const {username} = req.user;
-    if(!username){
-        throw new ApiError(409, 'Login again..!')
-    }
-
     try {
-        const user = await User.findOneAndDelete({username});
-        if(!user){
-            throw new ApiError(400, 'User not found..!')
-        }
+        const {username} = req.user;
+            if(!username){
+                throw new ApiError(409, 'Login again..!')
+            }
+
+        const {password} = req.body;
+            if(!password){
+                throw new ApiError(409, 'Enter password....!')
+            }
+        const user = await User.findOne({username});
+            if(!user){
+                throw new ApiError(400, 'User not found..!')
+            }
+        const isPasswordCorrect = await user.isPasswordCorrect(password);
+            if(!isPasswordCorrect){
+                throw new ApiError(400, 'Wrong password..!')
+            }
+
+        const deletedUser = await User.findOneAndDelete({username});
+            if(!deletedUser){
+                throw new ApiError(400, 'User deleting faild..!')
+            }
+
         const {email} = user;
         try {
             const options = {
                 to: email,
-                subject: "Your account deleted",
-                html: `<h1>Hi ${username}</h1><br><p>if you any fetching problame.</p><br><h1>Send <a href="mailto:${smtp_username}">Email us</a></h1>`,
+                subject: "Your account was deleted successfully.",
+                html: `<h1>Hi ${username}</h1><br><p>if you arre fetched any problame.</p><br><h1>Send <a href="mailto:${smtp_username}">Email us</a></h1>`,
               };
               const deletedResult = deleteCloudinaryFolder(username);
               if(!deletedResult){
@@ -567,10 +596,10 @@ export const deleteUser = asyncHandler( async (req, res) =>{
               }
               await sendEmail(options);
         } catch (error) {
-            res.status(401).clearCookie('accessToken').clearCookie('refreshToken').json({success:false, message:'mail send faild'})
+            res.status(401).json({success:false, message:'mail send faild'})
             return;
         }
-        return res.status(201).json( new ApiResponse(200, 'User created successfully....!', user))
+        return res.status(202).clearCookie('accessToken').clearCookie('refreshToken').json( new ApiResponse(200, 'User deleted successfully....!', user))
     } catch (error) {
         return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }

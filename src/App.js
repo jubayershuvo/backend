@@ -1,9 +1,11 @@
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
-import { cors_origin } from './constans.js';
 import cookieParser from 'cookie-parser';
-import userRouter from './routers/usrRoutes.js';
+
+import { cors_origin } from './constans.js';
+import userRouter from './routers/userRoutes.js';
+import adminRouter from './routers/adminRoute.js';
 
 const app = express();
 
@@ -21,10 +23,8 @@ app.use(cookieParser());
 
 
 
-
-
-
 app.use('/api/v1/users', userRouter);
+app.use('/api/v1/admin', adminRouter);
 
 
 export default app;

@@ -17,7 +17,7 @@ import {
     setPassword,
     passwordRecovery
  } from "../controllers/userController.js";
-import { upload } from './../middlewares/multerMiddleware.js';
+import { upload } from '../middlewares/multerMiddleware.js';
 import { verifyJWT } from "../middlewares/authMiddleware.js";
 import { isLogouted } from "../middlewares/isLogoutMiddleware.js";
 
@@ -99,7 +99,7 @@ userRouter.route('/watch_history').get(
     verifyJWT,
     userWatchHistry
 );
-userRouter.route('/delete-user').get(
+userRouter.route('/delete-user').delete(
     verifyJWT,
     deleteUser
 );

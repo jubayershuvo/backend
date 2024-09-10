@@ -45,7 +45,22 @@ const userSchema = new Schema({
         trim:true,
         minlength: [6,'Name will be 6 characters minimum'],
     },
+    isAdmin:{
+        type:Boolean,
+        default:false
+    },
+    isBanned:{
+        type:Boolean,
+        default:false
+    },
+    isOwner:{
+        type:Boolean,
+        default:false
+    },
     refreshToken:{
+        type:String
+    },
+    adminRefreshToken:{
         type:String
     }
 
@@ -67,7 +82,10 @@ userSchema.methods.generateAccessToken = function(){
         _id: this._id,
         email: this.email,
         username:this.username,
-        fullname: this.fullname
+        fullname: this.fullname,
+        isAdmin: this.isAdmin,
+        isBanned: this.isBanned,
+        isOwner: this.isOwner
     },access_token_secret_key, {expiresIn:access_token_expiry });
 }
 userSchema.methods.generateRefreshToken = function(){
