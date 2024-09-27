@@ -15,7 +15,8 @@ import {
     updateUserInfo,
     userWatchHistry,
     setPassword,
-    passwordRecovery
+    passwordRecovery,
+    findUserByUsername,
  } from "../controllers/userController.js";
 import { upload } from '../middlewares/multerMiddleware.js';
 import { verifyJWT } from "../middlewares/authMiddleware.js";
@@ -65,8 +66,7 @@ userRouter.route('/logout').get(
     verifyJWT,
     logoutUser
 );
-userRouter.route('/refresh-token').get(
-    verifyJWT,
+userRouter.route('/refresh-token').post(
     refreshAccessToken
 );
 userRouter.route('/update-password').post(
@@ -95,15 +95,18 @@ userRouter.route('/channel/:username').get(
     verifyJWT,
     channelProfile
 );
+userRouter.route('/user/:username').get(
+    verifyJWT,
+    findUserByUsername
+);
 userRouter.route('/watch_history').get(
     verifyJWT,
     userWatchHistry
 );
-userRouter.route('/delete-user').delete(
+userRouter.route('/delete-user').post(
     verifyJWT,
     deleteUser
 );
-
 
 
 export default userRouter;

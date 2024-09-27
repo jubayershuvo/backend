@@ -130,9 +130,9 @@ export const currentAdmin = asyncHandler(async (req, res)=>{
             
         }
     
-        return res.status(200).json(new ApiResponse(200, 'User is returned', admin));
+        return res.status(200).json(new ApiResponse(200, 'Admin profile is returned', admin));
     } catch (error) {
-        return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
 });
 
@@ -156,7 +156,7 @@ export const banUser = asyncHandler(async (req, res)=>{
         }
         
         if(user.isAdmin){
-            throw new ApiError(400, 'You can not ban an admin..!')
+            throw new ApiError(400, 'You can not ban an admin account..!')
         }
         if(user.isBanned){
             throw new ApiError(400, 'User already banned..!')
@@ -168,7 +168,7 @@ export const banUser = asyncHandler(async (req, res)=>{
     
         return res.status(200).json(new ApiResponse(200, 'User banned...!', user));
     } catch (error) {
-        return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
 });
 
@@ -201,7 +201,7 @@ export const unbanUser = asyncHandler(async (req, res)=>{
     
         return res.status(200).json(new ApiResponse(200, 'User unbanned...!', user));
     } catch (error) {
-        return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
 });
 
@@ -257,6 +257,30 @@ export const allUnbannedUsers = asyncHandler(async (req, res)=>{
         }
     
         return res.status(200).json(new ApiResponse(200, 'All the fresh users...!', users));
+    } catch (error) {
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message});
+    }
+});
+export const deleteUserByAdmin = asyncHandler(async (req, res)=>{
+
+    try {
+        const admin = req.admin;
+        if(!admin){
+            throw new ApiError(400, 'Please login first..!')            
+        }
+        const {username} = req.params;
+        const user = await User.findOne({username});
+
+        if(!user){
+            throw new ApiError(404, 'User Not found..!')
+        }
+        if(user.isAdmin){
+            throw new ApiError(404, 'User is an admin..!')
+        }
+
+        await User.findOneAndDelete({username});
+    
+        return res.status(200).json(new ApiResponse(200, 'User was deleted...!', user));
     } catch (error) {
         return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message});
     }

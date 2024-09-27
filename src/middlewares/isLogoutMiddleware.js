@@ -18,6 +18,6 @@ export const isLogouted = asyncHandler(async (req, res, next)=>{
             }
             next();
         } catch (error) {
-            return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
+            return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
         }
 });

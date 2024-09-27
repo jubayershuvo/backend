@@ -5,6 +5,7 @@ import {
     allUsers,
     banUser,
     currentAdmin,
+    deleteUserByAdmin,
     loginAdmin, 
     logoutAdmin, 
     refreshAdminAccessToken,
@@ -50,6 +51,11 @@ adminRouter.route('/fresh-users').get(
     verifyAdminJWT,
     allUnbannedUsers
 )
+adminRouter.route('/delete-user/:username').delete(
+    verifyAdminJWT,
+    deleteUserByAdmin
+)
+
 
 
 

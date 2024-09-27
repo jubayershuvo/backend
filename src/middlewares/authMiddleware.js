@@ -18,10 +18,16 @@ export const verifyJWT = asyncHandler(async (req, res, next)=>{
             throw new ApiError(401, 'Session expired..!')
         }
     
+        if(user.isBanned){
+            req.user = {};
+            res.clearCookie('accessToken').clearCookie('refreshToken')
+            throw new ApiError(401, 'Your account was banned..!')
+        }
+    
         req.user = user;
         next();
     } catch (error) {
-        return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
 })
 

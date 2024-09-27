@@ -21,7 +21,7 @@ const genAccessAndRefreshToken = async (userId)=>{
 
         return {accessToken,refreshToken}
     } catch (error) {
-        return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
 };
 
@@ -29,50 +29,77 @@ export const registerUser = asyncHandler( async (req, res) =>{
     const {fullname, email, username, password} = req.body;
 
     try {
-        if([fullname, email, username, password].some((field) => field?.trim() === '')){
-            throw new ApiError(400, 'All field is required...!')
+        if(!fullname){
+            throw new ApiError(400, 'Full-Name is required...!')
         }
-    
-        const userExist = await User.findOne({
-            $or:[{username}, {email}]
-        });
-        if(userExist){
-            throw new ApiError(409, 'Username or email already exists..!')
+        if(!username){
+            throw new ApiError(400, 'Username is required...!')
         }
+        if(!email){
+            throw new ApiError(400, 'Email is required...!')
+        }
+        if(!password){
+            throw new ApiError(400, 'Password is required...!')
+        }
+        
     
-        const avatarLocalPath  = req.files?.avatar[0]?.path;
+        const emailExist = await User.findOne({email});
+        const usernameExist = await User.findOne({username});
+        if(usernameExist){
+            throw new ApiError(409, 'Username already exists..!')
+        }
+        if(emailExist){
+            throw new ApiError(409, 'Email already exists..!')
+        }
+        
+        let avatarLocalPath;
         let coverImgLocalPath;
+        if(req.files && Array.isArray(req.files.avatar)){
+            avatarLocalPath = req.files?.avatar[0]?.path;
+        }
         if(req.files && Array.isArray(req.files.coverImg)){
             coverImgLocalPath = req.files.coverImg[0].path;
         }
         if(password.length < 6){
     
-            throw new ApiError(400, 'Password too short...!')
+            throw new ApiError(400, 'Password is too short...!')
         }
     
-        if(!avatarLocalPath){
-            throw new ApiError(400, 'Avatar is required...!')
-        }
+        let avatarUrl;
+        let coverImgUrl;
         
-        const avatar = await uploadOnCloudinary(avatarLocalPath, `Users_images/${username}`, "avatar");
-        const coverImg = await uploadOnCloudinary(coverImgLocalPath, `Users_images/${username}`, "coverImg");
+        if(avatarLocalPath){
+            const avatar = await uploadOnCloudinary(avatarLocalPath, `Users_images/${username}`, "avatar");
+       
+        
+            if(!avatar){
+                throw new ApiError(400, 'Avatar upload faild...!')
+            }
+            const avatarUrlSqureArry = avatar.secure_url.split('/');
+            const getImgName = avatarUrlSqureArry[avatarUrlSqureArry.length -1]
+            const getFolder = avatarUrlSqureArry[avatarUrlSqureArry.length -2]
+            const getImgId = avatarUrlSqureArry[avatarUrlSqureArry.length -4]
+            console.log(getImgId)
+            const getIdName = `${getImgId}/Users_images/${getFolder}/${getImgName}`;
+            const avatarSqureUrl = 'https://res.cloudinary.com/dhw3jdygg/image/upload/w_1000,ar_1:1,c_fill/'+getIdName;
+            avatarUrl = avatarSqureUrl
+        }
+        if(coverImgLocalPath){
+            const coverImg = await uploadOnCloudinary(coverImgLocalPath, `Users_images/${username}`, "coverImg");
     
         
-        if(!avatar){
-            throw new ApiError(400, 'Avatar upload faild...!')
+            if(!coverImg){
+                throw new ApiError(400, 'Cover photo upload faild...!')
+            }
+            coverImgUrl = coverImg.secure_url
         }
-        const avatarUrlSqureArry = avatar.url.split('/');
-        const getFolder = avatarUrlSqureArry[avatarUrlSqureArry.length -2]
-        const getImgId = avatarUrlSqureArry[avatarUrlSqureArry.length -4]
-        const getImgName = avatarUrlSqureArry[avatarUrlSqureArry.length -1]
-        const getIdName = `${getImgId}/Users_image/${getFolder}/${getImgName}`;
-        const avatarSqureUrl = 'https://res.cloudinary.com/dhw3jdygg/image/upload/w_1000,ar_1:1,c_fill,g_auto,e_art:hokusai/'+getIdName;
+        
         
         
         const user = {
             fullname,
-            avatar: avatarSqureUrl,
-            coverImg: coverImg?.url || '',
+            avatar: avatarUrl || '',
+            coverImg: coverImgUrl || '',
             email: email.toLowerCase(),
             password,
             username: username.toLowerCase()
@@ -110,7 +137,10 @@ export const setPassword = asyncHandler( async (req, res) =>{
             throw new ApiError(400, 'Password too short...!')
         }
         const user = await User.findOne({_id: id});
-    
+        const isPasswordCorrect = await user.isPasswordCorrect(password);
+        if(isPasswordCorrect){
+            throw new ApiError(400, 'This password is already in use..!')
+        };
     
         user.password = password;
         user.save({validateBeforeSave:false})
@@ -163,10 +193,10 @@ export const registerVerify = asyncHandler( async (req, res) =>{
     const saved_code = req.app.locals.OTP;
 
     if(!saved_code){
-        throw new ApiError(400, 'Unauthorized request..!')
+        return res.status(400).json({status: 400, success:false, message: 'Unauthorized request..!'})
     }
     if(!code){
-        throw new ApiError(400, 'Enter Code first..!')
+        return res.status(400).json({status: 400, success:false, message: 'Enter code..!'})
     }
 
     try {
@@ -178,7 +208,7 @@ export const registerVerify = asyncHandler( async (req, res) =>{
             username: user.username,
             email: user.email,
             password: user.password,
-            avatar: user.avatar,
+            avatar: user.avatar || '',
             coverImg: user.coverImg || '',
         });
         try {
@@ -200,16 +230,16 @@ export const registerVerify = asyncHandler( async (req, res) =>{
     }
 });
 export const loginUser = asyncHandler(async (req, res)=>{
-    const {username, email, password} = req.body;
+    const {login, password} = req.body;
     try {
-        if(!username && !email){
+        if(!login){
             throw new ApiError(400, 'Username or Email is required...!')
         }
     
-        const user = await User.findOne({$or:[{username},{email}]});
+        const user = await User.findOne({username:login}) || await User.findOne({email:login});
     
         if(!user){
-            throw new ApiError(404, 'User not found');
+            throw new ApiError(404, 'User not registered..!');
         }
         
     
@@ -219,27 +249,24 @@ export const loginUser = asyncHandler(async (req, res)=>{
         }
 
         if(user.isBanned){
-            throw new ApiError(401, 'User was banned..!');
+            throw new ApiError(401, 'Acoount was banned...!');
         }
     
     
         const {accessToken, refreshToken} = await genAccessAndRefreshToken(user._id);
     
-        const loggedUser = await User.findById(user._id).select('-password -refreshToken');
+        const loggedUser = await User.findById(user._id).select('-password');
     
             const options = {
                 httpOnly: true,
-                secure:true
+                secure:true,
+                sameSite: 'None'
             }
     
             return res.status(200)
             .cookie('accessToken', accessToken, options)
             .cookie('refreshToken', refreshToken ,options)
-            .json(new ApiResponse(200, 'User logged In successfully', {
-                user: loggedUser,
-                accessToken,
-                refreshToken
-            }));
+            .json(new ApiResponse(200, 'User logged In successfully', loggedUser));
     } catch (error) {
         return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
@@ -248,18 +275,18 @@ export const loginUser = asyncHandler(async (req, res)=>{
 
 });
 export const passwordRecovery = asyncHandler( async (req, res) =>{
-    const {email, username} = req.body;
+    const {request} = req.body;
 
     try {
-        if(!email && !username){
+        if(!request){
             throw new ApiError(400, 'Enter email or username')
         }
     
         const userExist = await User.findOne({
-            $or:[{username}, {email}]
+            $or:[{username:request}, {email:request}]
         });
         if(!userExist){
-            throw new ApiError(409, 'Username or email not registered..!')
+            throw new ApiError(409, 'User not registered..!')
         }
 
             const code = otpGenerator.generate(6, {lowerCaseAlphabets:false, upperCaseAlphabets:false,specialChars:false});
@@ -274,7 +301,7 @@ export const passwordRecovery = asyncHandler( async (req, res) =>{
             }
             req.app.locals.USERNAME = userExist.username;
             req.app.locals.OTP = code;
-        return res.status(201).json( new ApiResponse(200, 'Code deliverd', req.app.locals.USERNAME))
+        return res.status(200).json( new ApiResponse(200, 'Code deliverd', req.app.locals.USERNAME))
     } catch (error) {
         return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
@@ -294,23 +321,15 @@ export const logoutUser = asyncHandler(async (req, res)=>{
 });
 
 export const refreshAccessToken =  asyncHandler(async (req, res)=>{
-    const userRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
-    if(!userRefreshToken){
-        throw new ApiError(404, 'Login again..!')
-    }
-
+    const userRefreshToken = req.body.refreshToken;
     try {
-        const decoded = jwt.verify(userRefreshToken, refresh_token_secret_key);
-        if(!decoded){
-            throw new ApiError(404, 'Login Expired...!')
+        if(!userRefreshToken){
+            throw new ApiError(404, 'Login again..!')
         }
-        const user = await User.findById(decoded._id);
+        const decoded = jwt.verify(userRefreshToken, refresh_token_secret_key);
+        const user = await User.findOne({_id: decoded?._id}).select('-password');
         
         if(!user){
-            throw new ApiError(404, 'Login Expired...!')
-        }
-        
-        if(userRefreshToken !== user.refreshToken){
             throw new ApiError(404, 'Login Expired...!')
         }
     
@@ -324,9 +343,9 @@ export const refreshAccessToken =  asyncHandler(async (req, res)=>{
         return res.status(200)
         .cookie('accessToken', accessToken, options)
         .cookie('refreshToken', refreshToken, options)
-        .json( new ApiResponse(200,'Token refreshed', {accessToken,refreshToken},))
+        .json( new ApiResponse(200,'Token refreshed', user,))
     } catch (error) {
-        return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
 
 });
@@ -334,9 +353,15 @@ export const refreshAccessToken =  asyncHandler(async (req, res)=>{
 export const changePassword = asyncHandler(async (req, res)=>{
     try {
         const {oldPassword, newPassword} = req.body;
+
         if(oldPassword === newPassword){
 
             throw new ApiError(400, 'Old password and New password almost same..!')
+        }
+        
+        if(newPassword.length < 6){
+            throw new ApiError(400, 'New password too short..!')
+
         }
     
         const user = await User.findById(req.user?._id);
@@ -360,7 +385,7 @@ export const updateUserInfo = asyncHandler(async (req, res)=>{
     try {
         const {fullname, email} = req.body;
             if(!email && !fullname){
-                throw new ApiError(500, 'Updated..!');
+                throw new ApiError(500, 'Nothing to update...!');
             }
 
             const user = await User.findOneAndUpdate({_id: req.user._id},
@@ -378,7 +403,7 @@ export const updateUserInfo = asyncHandler(async (req, res)=>{
             return res.status(200).json(new ApiResponse(200, 'updated user...', user))
             
     } catch (error) {
-        return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
 });
 
@@ -393,13 +418,13 @@ export const currentUser = asyncHandler(async (req, res)=>{
     
         return res.status(200).json(new ApiResponse(200, 'User is returned', user));
     } catch (error) {
-        return res.status(error.statusCode).json({status: error.statusCode, success:false, message: error.message})
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
 });
 export const avatarUpdate = asyncHandler(async (req, res)=>{
     try {
         const avatarPath = req.file?.path;
-    
+        
         if(!avatarPath){
             throw new ApiError(400, 'Avatar missing..!')
         }
@@ -409,15 +434,16 @@ export const avatarUpdate = asyncHandler(async (req, res)=>{
         }
         const avatarUrlSqureArry = avatarImg.url.split('/');
         const getFolder = avatarUrlSqureArry[avatarUrlSqureArry.length -2]
-        const getImgId = avatarUrlSqureArry[avatarUrlSqureArry.length -3]
+        const getImgId = avatarUrlSqureArry[avatarUrlSqureArry.length -4]
         const getImgName = avatarUrlSqureArry[avatarUrlSqureArry.length -1]
-        const getIdName = `${getImgId}/${getFolder}/${getImgName}`;
-        const avatarSqureUrl = 'https://res.cloudinary.com/dhw3jdygg/image/upload/w_1000,ar_1:1,c_fill,g_auto,e_art:hokusai/'+getIdName;
+        const getIdName = `${getImgId}/Users_images/${getFolder}/${getImgName}`;
+        const avatarSqureUrl = 'https://res.cloudinary.com/dhw3jdygg/image/upload/w_1000,ar_1:1,c_fill/'+getIdName;
+ 
         const user = await User.findByIdAndUpdate(req.user?._id,{
             $set:{
                 avatar:avatarSqureUrl
             }
-        },{new:true}).select('-password -refreshToken -watchHistry')
+        },{new:true}).select('-password')
 
         return res.status(200).json(new ApiResponse(200, 'Avatar updated', user));
     } catch (error) {
@@ -441,7 +467,7 @@ export const coverImgUpdate = asyncHandler(async (req, res)=>{
             $set:{
                 coverImg:coverImg.url
             }
-        },{new:true}).select('-password -refreshToken -watchHistry');
+        },{new:true}).select('-password');
     
         return res.status(200).json(new ApiResponse(200, 'Cover image updated', user));
     } catch (error) {
@@ -450,69 +476,73 @@ export const coverImgUpdate = asyncHandler(async (req, res)=>{
 });
 
 export const channelProfile = asyncHandler(async (req, res)=>{
-        const username = req.params.username;
-        if(!username?.trim()){
-            throw new ApiError(400, 'Username is missing')
-        }
-
-        const channel = await User.aggregate([
-            {
-                $match:{
-                    username: username?.toLowerCase()
-                }
-            },{
-                $lookup:{
-                   from: 'subscriptions',
-                   localField: '_id',
-                   foreignField: 'channel' ,
-                   as: 'subscribers'
-                }
-            },
-            {
-                $lookup:{
-                    from: 'subscriptions',
-                    localField: '_id',
-                    foreignField: 'subscriber' ,
-                    as: 'subscribedTo'
-                 }
-            },{
-                $addFields:{
-                    subscriberCount:{
-                        $size:'$subscribers'
-                    },
-                    subscribedToCount:{
-                       $size: '$subscribedTo'
-                    },
-                    isSubscribed:{
-                        $cond:{
-                            if:{$in: [req.user?._id, '$subscribers.subscriber']},
-                            then:true,
-                            else:false
-                        }
-                    }
-
-                }
-            },{
-                $project:{
-                    fullname:1,
-                    username:1,
-                    subscriberCount:1,
-                    subscribedToCount:1,
-                    isSubscribed:1,
-                    avatar:1,
-                    coverImg:1,
-                    email:1
-
-                }
+        try {
+            const username = req.params.username;
+            if(!username?.trim()){
+                throw new ApiError(400, 'Username is missing')
             }
-        ]);
-
-        if(!channel?.length){
-            throw new ApiError(400, 'Channel dose not exist')
-        }
     
-
-    return res.status(200).json(new ApiResponse(200, 'Channel retured', channel[0]));
+            const channel = await User.aggregate([
+                {
+                    $match:{
+                        username: username?.toLowerCase()
+                    }
+                },{
+                    $lookup:{
+                       from: 'subscriptions',
+                       localField: '_id',
+                       foreignField: 'channel' ,
+                       as: 'subscribers'
+                    }
+                },
+                {
+                    $lookup:{
+                        from: 'subscriptions',
+                        localField: '_id',
+                        foreignField: 'subscriber' ,
+                        as: 'subscribedTo'
+                     }
+                },{
+                    $addFields:{
+                        subscriberCount:{
+                            $size:'$subscribers'
+                        },
+                        subscribedToCount:{
+                           $size: '$subscribedTo'
+                        },
+                        isSubscribed:{
+                            $cond:{
+                                if:{$in: [req.user?._id, '$subscribers.subscriber']},
+                                then:true,
+                                else:false
+                            }
+                        }
+    
+                    }
+                },{
+                    $project:{
+                        fullname:1,
+                        username:1,
+                        subscriberCount:1,
+                        subscribedToCount:1,
+                        isSubscribed:1,
+                        avatar:1,
+                        coverImg:1,
+                        email:1
+    
+                    }
+                }
+            ]);
+    
+            if(!channel?.length){
+                throw new ApiError(400, 'Channel dose not exist')
+            }
+        
+    
+        return res.status(200).json(new ApiResponse(200, 'Channel retured', channel[0]));
+        } catch (error) {
+            return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
+        }
 });
 export const userWatchHistry = asyncHandler(async (req, res)=>{
     const user = await User.aggregate([
@@ -605,4 +635,21 @@ export const deleteUser = asyncHandler( async (req, res) =>{
     }
 });
 
+export const findUserByUsername = asyncHandler(async (req, res)=>{
+    const {username} = req.params;
+    console.log(username)
+        try {
+            if(!username){
+                throw new ApiError(400, 'Username empty..!')
+            }
+    
+            const user = await User.findOne({username}).select('-password');
+            if(!user){
+                throw new ApiError(400, 'User not found..!')
+            }
+            return res.status(200).json(new ApiResponse(200, 'User returned..!', user));
+        } catch (error) {
+            return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
+        }
 
+})
