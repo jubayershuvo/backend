@@ -6,6 +6,7 @@ import {
     banUser,
     currentAdmin,
     deleteUserByAdmin,
+    getUserByUsername,
     loginAdmin, 
     logoutAdmin, 
     refreshAdminAccessToken,
@@ -41,6 +42,10 @@ adminRouter.route('/unban-user/:username').get(
 adminRouter.route('/all-users').get(
     verifyAdminJWT,
     allUsers
+)
+adminRouter.route('/user').get(
+    verifyAdminJWT,
+    getUserByUsername
 )
 adminRouter.route('/banned-users').get(
     verifyAdminJWT,

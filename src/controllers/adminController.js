@@ -318,6 +318,39 @@ export const deleteUserByAdmin = asyncHandler(async (req, res)=>{
         return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message});
     }
 });
+export const getUserByUsername = asyncHandler(async (req, res)=>{
+
+    try {
+        const admin = req.admin;
+        if(!admin){
+            throw new ApiError(400, 'Please login first..!')            
+        }
+        const username = req.query.search;
+        if(!username){
+            try {
+                const users = await User.find({isAdmin:false, isOwner:false});
+                if(!users){
+                    throw new ApiError(400, 'Users Not found..!')
+                }
+            
+                return res.status(200).json(new ApiResponse(200, 'All members loaded...!', users));
+            } catch (error) {
+                return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
+                
+            }
+        }
+
+        
+        const user = await User.findOne({username,isAdmin:false,isOwner:false}).select('-password');
+        if(!user){
+            throw new ApiError(400, 'Users Not found..!')
+        }
+    
+        return res.status(200).json(new ApiResponse(200, `${username} found successfully...!`, [user]));
+    } catch (error) {
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
+    }
+});
 
 
 
