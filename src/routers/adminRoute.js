@@ -23,8 +23,7 @@ adminRouter.route('/logout').get(
     verifyAdminJWT,
     logoutAdmin
 )
-adminRouter.route('/refresh-token').get(
-    verifyAdminJWT,
+adminRouter.route('/refresh-token').post(
     refreshAdminAccessToken
 )
 adminRouter.route('/current-admin').get(
@@ -51,7 +50,7 @@ adminRouter.route('/fresh-users').get(
     verifyAdminJWT,
     allUnbannedUsers
 )
-adminRouter.route('/delete-user/:username').delete(
+adminRouter.route('/delete-user/:username').get(
     verifyAdminJWT,
     deleteUserByAdmin
 )

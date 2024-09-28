@@ -21,16 +21,16 @@ const genAdminAccessAndRefreshToken = async (userId)=>{
 };
 
 export const loginAdmin = asyncHandler(async (req, res)=>{
-    const {username, email, password} = req.body;
+    const {admin, password} = req.body;
     try {
-        if(!username && !email){
+        if(!admin){
             throw new ApiError(400, 'Username or Email is required...!')
         }
     
-        const user = await User.findOne({$or:[{username},{email}]});
+        const user = await User.findOne({username:admin}) || await User.findOne({email:admin});
     
         if(!user){
-            throw new ApiError(404, 'User not found...!');
+            throw new ApiError(404, 'Admin not found...!');
         }
 
         
@@ -55,11 +55,7 @@ export const loginAdmin = asyncHandler(async (req, res)=>{
             return res.status(200)
             .cookie('adminAccessToken', adminAccessToken, options)
             .cookie('adminRefreshToken', adminRefreshToken ,options)
-            .json(new ApiResponse(200, 'Admin logged In successfully', {
-                Admin: loggedUser,
-                adminAccessToken,
-                adminRefreshToken
-            }));
+            .json(new ApiResponse(200, 'Admin logged In successfully', loggedUser));
     } catch (error) {
         return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
@@ -84,7 +80,7 @@ export const logoutAdmin = asyncHandler(async (req, res)=>{
 
 export const refreshAdminAccessToken =  asyncHandler(async (req, res)=>{
     try {
-        const savedAdminRefreshToken = req.cookies.adminRefreshToken || req.body.adminRefreshToken;
+        const savedAdminRefreshToken = req.body.adminRefreshToken;
 
         if(!savedAdminRefreshToken){
             throw new ApiError(404, 'Login again..!')
@@ -99,11 +95,9 @@ export const refreshAdminAccessToken =  asyncHandler(async (req, res)=>{
         if(!admin){
             throw new ApiError(404, 'Login Expired...!')
         }
-        
-        if(savedAdminRefreshToken !== admin.adminRefreshToken){
-            throw new ApiError(404, 'Login Expired...!')
+        if(!admin.isAdmin){
+            throw new ApiError(404, 'You are not an admin...!')
         }
-    
         const options = {
             httpOnly: true,
             secure:true
@@ -163,10 +157,15 @@ export const banUser = asyncHandler(async (req, res)=>{
         }
 
         user.isBanned = true;
-        user.save({validateBeforeSave:false})
+        user.save({validateBeforeSave:false});
+
+        const users = await User.find({isAdmin:false, isOwner:false});
+        if(!users){
+            throw new ApiError(400, 'Users Not found..!')
+        }
 
     
-        return res.status(200).json(new ApiResponse(200, 'User banned...!', user));
+        return res.status(200).json(new ApiResponse(200, `${username} banned successfully...!`, users));
     } catch (error) {
         return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
@@ -196,10 +195,15 @@ export const unbanUser = asyncHandler(async (req, res)=>{
         }
 
         user.isBanned = false;
-        user.save({validateBeforeSave:false})
+        user.save({validateBeforeSave:false});
+
+        const users = await User.find({isAdmin:false, isOwner:false});
+        if(!users){
+            throw new ApiError(400, 'Users Not found..!')
+        }
 
     
-        return res.status(200).json(new ApiResponse(200, 'User unbanned...!', user));
+        return res.status(200).json(new ApiResponse(200, `${username} unbanned successfully...!'`, users));
     } catch (error) {
         return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
@@ -218,7 +222,7 @@ export const allUsers = asyncHandler(async (req, res)=>{
             throw new ApiError(400, 'Users Not found..!')
         }
     
-        return res.status(200).json(new ApiResponse(200, 'User banned...!', users));
+        return res.status(200).json(new ApiResponse(200, 'All users...!', users));
     } catch (error) {
         return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
@@ -279,8 +283,13 @@ export const deleteUserByAdmin = asyncHandler(async (req, res)=>{
         }
 
         await User.findOneAndDelete({username});
+
+        const users = await User.find({isAdmin:false, isOwner:false});
+        if(!users){
+            throw new ApiError(400, 'Users Not found..!')
+        }
     
-        return res.status(200).json(new ApiResponse(200, 'User was deleted...!', user));
+        return res.status(200).json(new ApiResponse(200, `'${username} was deleted...!'`, users));
     } catch (error) {
         return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message});
     }
