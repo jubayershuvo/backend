@@ -159,13 +159,27 @@ export const banUser = asyncHandler(async (req, res)=>{
         user.isBanned = true;
         user.save({validateBeforeSave:false});
 
-        const users = await User.find({isAdmin:false, isOwner:false});
-        if(!users){
-            throw new ApiError(400, 'Users Not found..!')
+        const updated = await User.findOne({username});
+        if(updated){
+            const users = await User.find({isAdmin:false, isOwner:false},{new:true});
+            if(!users){
+                throw new ApiError(400, 'Users Not found..!')
+            }
+    
+            try {
+                const users = await User.find({isAdmin:false, isOwner:false});
+                if(!users){
+                    throw new ApiError(400, 'Users Not found..!')
+                }
+                return res.status(200).json(new ApiResponse(200, `${username} banned successfully...!`, users));
+            } catch (error) {
+                
+                return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
+            }
         }
 
     
-        return res.status(200).json(new ApiResponse(200, `${username} banned successfully...!`, users));
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     } catch (error) {
         return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
@@ -197,13 +211,23 @@ export const unbanUser = asyncHandler(async (req, res)=>{
         user.isBanned = false;
         user.save({validateBeforeSave:false});
 
-        const users = await User.find({isAdmin:false, isOwner:false});
-        if(!users){
-            throw new ApiError(400, 'Users Not found..!')
+        const updated = await User.findOne({username});
+        if(updated){
+
+            try {
+                const users = await User.find({isAdmin:false, isOwner:false});
+                if(!users){
+                    throw new ApiError(400, 'Users Not found..!')
+                }
+                return res.status(200).json(new ApiResponse(200, `${username} unbanned successfully...!'`, users));
+            } catch (error) {
+                
+                return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
+            }
         }
 
     
-        return res.status(200).json(new ApiResponse(200, `${username} unbanned successfully...!'`, users));
+        return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     } catch (error) {
         return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
@@ -222,7 +246,7 @@ export const allUsers = asyncHandler(async (req, res)=>{
             throw new ApiError(400, 'Users Not found..!')
         }
     
-        return res.status(200).json(new ApiResponse(200, 'All users...!', users));
+        return res.status(200).json(new ApiResponse(200, 'All members loaded...!', users));
     } catch (error) {
         return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
     }
