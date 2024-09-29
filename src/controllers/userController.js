@@ -618,11 +618,11 @@ export const deleteUser = asyncHandler( async (req, res) =>{
             const options = {
                 to: email,
                 subject: "Your account was deleted successfully.",
-                html: `<h1>Hi ${username}</h1><br><p>if you arre fetched any problame.</p><br><h1>Send <a href="mailto:${smtp_username}">Email us</a></h1>`,
+                html: `<h1>Hi ${username}</h1><br><p>if you are fetched any problame.</p><br><h1>Send <a href="mailto:${smtp_username}">Email us</a></h1>`,
               };
               const deletedResult = deleteCloudinaryFolder(username);
               if(!deletedResult){
-                throw new ApiError(400, 'User folder deleting faild')
+                throw new ApiError(400, 'User folder deleting faild...!')
               }
               await sendEmail(options);
         } catch (error) {

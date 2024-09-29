@@ -265,7 +265,7 @@ export const allBannedUsers = asyncHandler(async (req, res)=>{
             throw new ApiError(400, 'Users Not found..!')
         }
     
-        return res.status(200).json(new ApiResponse(200, 'All banned users...!', users));
+        return res.status(200).json(new ApiResponse(200, 'Banned users loaded...!', users));
     } catch (error) {
         return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message});
     }
@@ -284,7 +284,7 @@ export const allUnbannedUsers = asyncHandler(async (req, res)=>{
             throw new ApiError(400, 'Users Not found..!')
         }
     
-        return res.status(200).json(new ApiResponse(200, 'All the fresh users...!', users));
+        return res.status(200).json(new ApiResponse(200, 'Fresh users loaded...!', users));
     } catch (error) {
         return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message});
     }
@@ -306,14 +306,29 @@ export const deleteUserByAdmin = asyncHandler(async (req, res)=>{
             throw new ApiError(404, 'User is an admin..!')
         }
 
-        await User.findOneAndDelete({username});
+        const deletedUser = await User.findOneAndDelete({username});
 
         const users = await User.find({isAdmin:false, isOwner:false});
         if(!users){
             throw new ApiError(400, 'Users Not found..!')
         }
+        try {
+            const options = {
+                to: deletedUser.email,
+                subject: "Your account was deleted By admin.",
+                html: `<h1>Hi ${username}</h1><br><p>if you do something wrong.</p><br><h1>Send <a href="mailto:${smtp_username}">Email us</a></h1>`,
+              };
+              const deletedResult = deleteCloudinaryFolder(username);
+              if(!deletedResult){
+                throw new ApiError(400, 'User folder deleting faild...!')
+              }
+              await sendEmail(options);
+              return res.status(200).json(new ApiResponse(200, `'${username} was deleted...!'`, users));
+        } catch (error) {
+            res.status(401).json({success:false, message:'mail send faild'})
+            return;
+        }
     
-        return res.status(200).json(new ApiResponse(200, `'${username} was deleted...!'`, users));
     } catch (error) {
         return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message});
     }
