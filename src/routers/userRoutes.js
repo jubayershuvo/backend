@@ -20,12 +20,10 @@ import {
  } from "../controllers/userController.js";
 import { upload } from '../middlewares/multerMiddleware.js';
 import { verifyJWT } from "../middlewares/authMiddleware.js";
-import { isLogouted } from "../middlewares/isLogoutMiddleware.js";
 
 const userRouter = Router();
 
 userRouter.route('/register').post(
-    isLogouted,
     upload.fields([
         {
             name: 'avatar',
@@ -39,27 +37,21 @@ userRouter.route('/register').post(
     registerUser
 );
 userRouter.route('/activate-user').post(
-    isLogouted,
     registerVerify
 );
 userRouter.route('/verify-code').post(
-    isLogouted,
     forgetCodeVerify
 );
 userRouter.route('/forget-password').post(
-    isLogouted,
     passwordRecovery
 );
 userRouter.route('/set-password').post(
-    isLogouted,
     setPassword
 );
 userRouter.route('/recover-password').post(
-    isLogouted,
     registerVerify
 );
 userRouter.route('/login').post(
-    isLogouted,
     loginUser
 );
 userRouter.route('/logout').get(
