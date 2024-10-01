@@ -17,6 +17,7 @@ import {
     setPassword,
     passwordRecovery,
     findUserByUsername,
+    findUsersBySearch,
  } from "../controllers/userController.js";
 import { upload } from '../middlewares/multerMiddleware.js';
 import { verifyJWT } from "../middlewares/authMiddleware.js";
@@ -90,6 +91,10 @@ userRouter.route('/channel/:username').get(
 userRouter.route('/user/:username').get(
     verifyJWT,
     findUserByUsername
+);
+userRouter.route('/search-users').get(
+    verifyJWT,
+    findUsersBySearch
 );
 userRouter.route('/watch_history').get(
     verifyJWT,

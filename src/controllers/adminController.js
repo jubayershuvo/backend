@@ -15,6 +15,7 @@ const genAdminAccessAndRefreshToken = async (userId)=>{
         const adminRefreshToken = user.generateRefreshToken()
 
         user.adminRefreshToken = adminRefreshToken;
+        user.adminAccessToken = adminAccessToken;
         await user.save({validateBeforeSave:false});
 
         return {adminAccessToken,adminRefreshToken}

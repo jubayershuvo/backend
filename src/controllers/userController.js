@@ -16,6 +16,7 @@ const genAccessAndRefreshToken = async (userId)=>{
         const accessToken = user.generateAccessToken()
         const refreshToken = user.generateRefreshToken()
 
+        user.accessToken = accessToken;
         user.refreshToken = refreshToken;
         await user.save({validateBeforeSave:false});
 
@@ -321,7 +322,7 @@ export const logoutUser = asyncHandler(async (req, res)=>{
 });
 
 export const refreshAccessToken =  asyncHandler(async (req, res)=>{
-    const userRefreshToken = req.body.refreshToken;
+    const userRefreshToken = req.body.refreshToken || req.header('Authorization')?.replace('Bearer','').trim();
     try {
         if(!userRefreshToken){
             throw new ApiError(404, 'Login again..!')
@@ -637,7 +638,6 @@ export const deleteUser = asyncHandler( async (req, res) =>{
 
 export const findUserByUsername = asyncHandler(async (req, res)=>{
     const {username} = req.params;
-    console.log(username)
         try {
             if(!username){
                 throw new ApiError(400, 'Username empty..!')
@@ -648,6 +648,30 @@ export const findUserByUsername = asyncHandler(async (req, res)=>{
                 throw new ApiError(400, 'User not found..!')
             }
             return res.status(200).json(new ApiResponse(200, 'User returned..!', user));
+        } catch (error) {
+            return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
+        }
+
+});
+export const findUsersBySearch = asyncHandler(async (req, res)=>{
+    try {
+    const search = req.query.search;
+    if(!search){
+        throw new ApiError(400, 'Enter something...!...!')
+    }
+    const keyword = search 
+    ? {
+        $or: [
+            { fullname: { $regex: search, $options: 'i' } },  // Case-insensitive match for fullname
+            { username: { $regex: search, $options: 'i' } },  // Case-insensitive match for username
+            { email: { $regex: search, $options: 'i' } },     // Case-insensitive match for email
+        ],
+    }
+    : {}; 
+
+        console.log(keyword)
+        const users = await User.find(keyword).find({ _id: { $ne: req.user._id } });
+            return res.status(200).json(new ApiResponse(200, 'User returned..!', users));
         } catch (error) {
             return res.status(error.statusCode || 500).json({status: error.statusCode, success:false, message: error.message})
         }

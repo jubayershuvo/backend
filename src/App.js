@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import { cors_origin } from './constans.js';
 import userRouter from './routers/userRoutes.js';
 import adminRouter from './routers/adminRoute.js';
+import chatRouter from './routers/chatRoute.js';
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use(cookieParser());
 
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/admin', adminRouter);
+app.use('/api/v1/chats', chatRouter);
 
 
 export default app;
